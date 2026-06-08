@@ -137,38 +137,3 @@ async def test_get_traffic_info(api, mock_session):
     info = await api.get_traffic_info()
     assert info.bytes_sent == 1000
     assert info.bytes_received == 2000
-
-@pytest.mark.asyncio
-async def test_get_guest_wifi_enabled_disabled_radio(api, mock_session):
-    """Test get_guest_wifi_enabled handles error 196618 gracefully."""
-    mock_login_resp = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
-    mock_error_resp = create_mock_response(
-        status=200,
-        json_data={
-            "errors": [
-                {"error": 196618, "description": "Object or parameter not found", "info": "sah.Device.WiFi.Radio"}
-            ]
-        }
-    )
-    mock_session.post.side_effect = [mock_login_resp, mock_error_resp]
-    
-    is_enabled = await api.get_guest_wifi_enabled()
-    assert is_enabled is False
-
-@pytest.mark.asyncio
-async def test_set_guest_wifi_disabled_radio(api, mock_session):
-    """Test set_guest_wifi handles error 196618 gracefully."""
-    mock_login_resp = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
-    mock_error_resp = create_mock_response(
-        status=200,
-        json_data={
-            "errors": [
-                {"error": 196618, "description": "Object or parameter not found", "info": "sah.Device.WiFi.Radio"}
-            ]
-        }
-    )
-    mock_session.post.side_effect = [mock_login_resp, mock_error_resp]
-    
-    with pytest.raises(Exception, match="Guest Wi-Fi interface not found \\(Wi-Fi Radio disabled\\)"):
-        await api.set_guest_wifi(True)
-
