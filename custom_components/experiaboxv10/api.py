@@ -351,7 +351,13 @@ class ExperiaBoxV10Api:
 
     async def get_guest_wifi_enabled(self) -> bool:
         """Get Guest Wi-Fi status."""
-        data = await self._request("sah.Device.WiFi.Radio", "get", endpoint="ws")
+        try:
+            data = await self._request("sah.Device.WiFi.Radio", "get", endpoint="ws")
+        except Exception as err:
+            if "196618" in str(err):
+                return False
+            raise
+            
         status = data.get("status")
         if not isinstance(status, list):
             return False
@@ -363,7 +369,13 @@ class ExperiaBoxV10Api:
 
     async def set_guest_wifi(self, enable: bool) -> None:
         """Enable or disable Guest Wi-Fi."""
-        data = await self._request("sah.Device.WiFi.Radio", "get", endpoint="ws")
+        try:
+            data = await self._request("sah.Device.WiFi.Radio", "get", endpoint="ws")
+        except Exception as err:
+            if "196618" in str(err):
+                raise Exception("Guest Wi-Fi interface not found (Wi-Fi Radio disabled)") from err
+            raise
+            
         status = data.get("status")
         if not isinstance(status, list):
             raise Exception("Guest Wi-Fi interface not found")
