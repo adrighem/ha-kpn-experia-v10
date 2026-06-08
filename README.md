@@ -23,7 +23,7 @@ This integration wrangles your ZTE H369A (Experia Box v10) into Home Assistant. 
 Grab it via [HACS](https://hacs.xyz/):
 
 1. HACS > Integrations > 3 dots (top right) > Custom repositories.
-2. Add `https://github.com/adrighem/kpn-experia-v10-integration` as an **Integration**.
+2. Add `https://github.com/adrighem/ha-kpn-experia-v10` as an **Integration**.
 3. Download "ExperiaBox v10".
 4. Restart Home Assistant.
 
