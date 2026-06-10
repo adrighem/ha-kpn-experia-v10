@@ -151,6 +151,9 @@ class ExperiaBoxV10Api:
                             self._context_id = None
                             self._cookie = None
                             return await self._request(service, method, parameters, endpoint)
+                        elif str(error_code) == "196618" and service == "sah.Device.WiFi.Radio":
+                            _LOGGER.debug("Ignoring 196618 error for WiFi Radio (disabled)")
+                            return {}
                         else:
                             raise Exception(f"Router API returned error {error_code}: {data}")
 
