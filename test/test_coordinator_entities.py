@@ -44,6 +44,7 @@ async def test_coordinator_update_data(coordinator):
     coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
     coordinator.api.get_traffic_info = AsyncMock(return_value=mock_traffic_info)
     coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=True)
+    coordinator.api.get_wifi_enabled = AsyncMock(return_value=True)
     
     data = await coordinator._async_update_data()
     assert data.devices == mock_devices
@@ -51,6 +52,33 @@ async def test_coordinator_update_data(coordinator):
     assert data.wan_info == mock_wan_info
     assert data.traffic_info == mock_traffic_info
     assert data.guest_wifi_enabled is True
+
+@pytest.mark.asyncio
+async def test_coordinator_preserves_devices_on_update_failure(coordinator):
+    """Test device list is preserved when device discovery fails after first data."""
+    old_devices = [Device("MAC1", "Name1", "1.1.1.1", True)]
+    mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.26.04", "SN1", 100)
+    mock_wan_info = WanInfo("8.8.8.8", True, "Up")
+    mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
+    coordinator.data = ExperiaBoxV10Data(
+        old_devices,
+        mock_router_info,
+        mock_wan_info,
+        mock_traffic_info,
+        True,
+        True,
+    )
+
+    coordinator.api.get_devices = AsyncMock(side_effect=Exception("device failure"))
+    coordinator.api.get_router_info = AsyncMock(return_value=mock_router_info)
+    coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
+    coordinator.api.get_traffic_info = AsyncMock(return_value=mock_traffic_info)
+    coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=False)
+    coordinator.api.get_wifi_enabled = AsyncMock(return_value=True)
+
+    data = await coordinator._async_update_data()
+
+    assert data.devices == old_devices
 
 @pytest.mark.asyncio
 async def test_coordinator_throughput(coordinator):
@@ -65,6 +93,7 @@ async def test_coordinator_throughput(coordinator):
     coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
     coordinator.api.get_traffic_info = AsyncMock(return_value=mock_traffic_1)
     coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=False)
+    coordinator.api.get_wifi_enabled = AsyncMock(return_value=True)
     
     with patch("time.monotonic", return_value=100.0):
         data1 = await coordinator._async_update_data()
@@ -95,6 +124,7 @@ async def test_new_device_detection(coordinator):
     coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
     coordinator.api.get_traffic_info = AsyncMock(return_value=mock_traffic)
     coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=False)
+    coordinator.api.get_wifi_enabled = AsyncMock(return_value=True)
     
     with patch("time.monotonic", return_value=100.0):
         data1 = await coordinator._async_update_data()
@@ -134,12 +164,31 @@ def test_entity_properties(coordinator):
     
     entity = ExperiaBoxV10DeviceScannerEntity(coordinator, mac)
     
-    assert entity.unique_id == mac
+    assert entity.unique_id == f"SN1_{mac}"
     assert entity.mac_address == mac
     assert entity.name == "Test Device"
     assert entity.is_connected is True
     assert entity.source_type == "router"
     assert entity.extra_state_attributes == {"ip": "192.168.1.10"}
+
+def test_entity_unique_id_falls_back_to_entry_id(coordinator):
+    """Test entity unique IDs stay stable when the router omits serial."""
+    mac = "00:11:22:33:44:55"
+    mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.26.04", "", 100)
+    mock_wan_info = WanInfo("8.8.8.8", True, "Up")
+    mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
+    coordinator.entry_id = "entry-123"
+    coordinator.data = ExperiaBoxV10Data(
+        [Device(mac, "Test Device", "192.168.1.10", True)],
+        mock_router_info,
+        mock_wan_info,
+        mock_traffic_info,
+        True
+    )
+
+    entity = ExperiaBoxV10DeviceScannerEntity(coordinator, mac)
+
+    assert entity.unique_id == f"entry-123_{mac}"
 
 def test_entity_disconnected(coordinator):
     """Test entity behavior when device is disconnected."""

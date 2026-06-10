@@ -1,7 +1,10 @@
 """Test the ExperiaBox v10 config flow."""
 from unittest.mock import MagicMock, patch
 import pytest
-from custom_components.experiaboxv10.config_flow import ConfigFlow as ExperiaConfigFlow
+from custom_components.experiaboxv10.config_flow import (
+    ConfigFlow as ExperiaConfigFlow,
+    OptionsFlowHandler,
+)
 
 class MockConfigFlowBase:
     def __init__(self):
@@ -39,6 +42,12 @@ async def test_show_form(flow):
 
     assert result["type"] == "form"
     assert result["step_id"] == "user"
+
+def test_options_flow_factory_does_not_pass_config_entry():
+    """Test options flow factory works with modern Home Assistant."""
+    handler = ExperiaConfigFlow.async_get_options_flow(MagicMock())
+
+    assert isinstance(handler, OptionsFlowHandler)
 
 @pytest.mark.asyncio
 async def test_successful_flow(flow):
