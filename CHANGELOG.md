@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.2.0](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.1.1...v3.2.0) (2026-06-10)
+
+
+### Features
+
+* add global wifi on/off switch ([1eee7b2](https://github.com/adrighem/ha-kpn-experia-v10/commit/1eee7b254d598234fd11384c2663ab444067d572))
+
+
+### Bug Fixes
+
+* **coordinator:** resolve syntax error causing hassfest failure ([5cce72f](https://github.com/adrighem/ha-kpn-experia-v10/commit/5cce72fceb25d4f037b8cc8241ee64e03359e8b4))
+* handle 196618 error when wifi radio is disabled ([2cf5b49](https://github.com/adrighem/ha-kpn-experia-v10/commit/2cf5b49100ae1fa8357d3b570eeb4f7b9a77e009))
+* handle 196618 error when wifi radio is disabled ([3cb6901](https://github.com/adrighem/ha-kpn-experia-v10/commit/3cb69011567aceaf12c53e0f8e37bdc0ebccc1df)), closes [#4](https://github.com/adrighem/ha-kpn-experia-v10/issues/4)
+* handle 196618 error when wifi radio is disabled ([f8e0208](https://github.com/adrighem/ha-kpn-experia-v10/commit/f8e020890cb5e7ad7bb26bcfba27cc5f39c4e6c6)), closes [#4](https://github.com/adrighem/ha-kpn-experia-v10/issues/4)
+* handle 196618 error when wifi radio is disabled ([f453436](https://github.com/adrighem/ha-kpn-experia-v10/commit/f45343665293e458e94b4e0b9869a03ae8866ab8)), closes [#4](https://github.com/adrighem/ha-kpn-experia-v10/issues/4)
+* **hassfest:** resolve validation failures and logic errors ([85c104f](https://github.com/adrighem/ha-kpn-experia-v10/commit/85c104ffcaefe2e15678efd71a83f80f24093423))
+* **manifest:** remove invalid homeassistant key ([15850cc](https://github.com/adrighem/ha-kpn-experia-v10/commit/15850cc7e91e5a5229f226a52498add4b7eeb52a))
+* move branding assets to brand/ folder for HACS validation ([f35fe82](https://github.com/adrighem/ha-kpn-experia-v10/commit/f35fe82a7d7e1e94e440dbd30cb096cb1cf0317e))
+* update repository URL to ha-kpn-experia-v10 to pass HACS validation ([a538234](https://github.com/adrighem/ha-kpn-experia-v10/commit/a5382345c150199470d0846a22194f815511f923))
+
 ## [3.1.1](https://github.com/adrighem/kpn-experia-v10-integration/compare/v3.1.0...v3.1.1) (2026-05-10)
 
 
