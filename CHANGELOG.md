@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.1](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.0...v3.2.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* harden router session handling ([3a15507](https://github.com/adrighem/ha-kpn-experia-v10/commit/3a15507d09b65163aaee08c5387690371850de08))
+* harden router session handling ([771d9b2](https://github.com/adrighem/ha-kpn-experia-v10/commit/771d9b29775dbabd680a9b9f9801872688c20212))
+
 ## [3.2.0](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.1.1...v3.2.0) (2026-06-10)
 
 
