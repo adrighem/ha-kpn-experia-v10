@@ -1,7 +1,11 @@
 """Test the ExperiaBox v10 API."""
 from unittest.mock import MagicMock, AsyncMock
 import pytest
-from custom_components.experiaboxv10.api import ExperiaBoxV10Api
+from custom_components.experiaboxv10.api import (
+    ExperiaBoxV10Api,
+    ExperiaBoxV10ApiError,
+    ExperiaBoxV10AuthenticationError,
+)
 
 @pytest.fixture
 def mock_session():
@@ -64,7 +68,7 @@ async def test_get_devices(api, mock_session):
     )
     # Mocking guest topology as empty
     mock_empty_resp = create_mock_response(status=200, json_data={"status": []})
-    
+
     def mock_post(url, **kwargs):
         print("MOCK POST CALLED:", url)
         if "login" in url or "ws" in url and "ssw" in str(kwargs.get("json")):
@@ -137,3 +141,89 @@ async def test_get_traffic_info(api, mock_session):
     info = await api.get_traffic_info()
     assert info.bytes_sent == 1000
     assert info.bytes_received == 2000
+
+@pytest.mark.asyncio
+async def test_get_guest_wifi_enabled_handles_196618(api, mock_session):
+    """Test that get_guest_wifi_enabled safely catches the 196618 disabled error."""
+    mock_login_resp = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
+    mock_data_resp = create_mock_response(
+        status=200,
+        json_data={
+            "error": "196618",
+            "errors": [
+                {"error": "196618"}
+            ]
+        }
+    )
+    mock_session.post.side_effect = [mock_login_resp, mock_data_resp]
+
+    # This shouldn't raise an exception
+    enabled = await api.get_guest_wifi_enabled()
+    assert enabled is False
+
+@pytest.mark.asyncio
+async def test_request_retries_auth_once(api, mock_session):
+    """Test that authentication errors retry once and then fail."""
+    mock_login_resp_1 = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
+    mock_unauthorized_resp_1 = create_mock_response(status=401)
+    mock_login_resp_2 = create_mock_response(status=200, json_data={"data": {"contextID": "def"}})
+    mock_unauthorized_resp_2 = create_mock_response(status=401)
+    mock_session.post.side_effect = [
+        mock_login_resp_1,
+        mock_unauthorized_resp_1,
+        mock_login_resp_2,
+        mock_unauthorized_resp_2,
+    ]
+
+    with pytest.raises(ExperiaBoxV10AuthenticationError):
+        await api._request("NMC", "get", endpoint="ws")
+
+    assert mock_session.post.call_count == 4
+
+@pytest.mark.asyncio
+async def test_request_does_not_retry_invalid_arguments(api, mock_session):
+    """Test that invalid arguments do not cause recursive auth retries."""
+    mock_login_resp = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
+    mock_error_resp = create_mock_response(
+        status=200,
+        json_data={"errors": [{"error": "9003"}]},
+    )
+    mock_session.post.side_effect = [mock_login_resp, mock_error_resp]
+
+    with pytest.raises(ExperiaBoxV10ApiError):
+        await api._request("NMC", "badMethod", endpoint="ws")
+
+    assert mock_session.post.call_count == 2
+
+@pytest.mark.asyncio
+async def test_fallback_login_uses_fallback_cookie(api, mock_session):
+    """Test fallback login stores the fallback response cookie."""
+    mock_login_resp = create_mock_response(
+        status=404,
+        json_data={},
+        headers={"set-cookie": "wrong=1; Path=/"},
+    )
+    mock_fallback_login_resp = create_mock_response(
+        status=200,
+        json_data={"data": {"contextID": "abc"}},
+        headers={"set-cookie": "fallback=1; Path=/"},
+    )
+    mock_data_resp = create_mock_response(status=200, json_data={"status": {}})
+    mock_session.post.side_effect = [
+        mock_login_resp,
+        mock_fallback_login_resp,
+        mock_data_resp,
+    ]
+
+    await api._request("NMC", "get", endpoint="ws")
+
+    request_headers = mock_session.post.call_args_list[2].kwargs["headers"]
+    assert request_headers["Cookie"] == "fallback=1"
+
+@pytest.mark.asyncio
+async def test_get_devices_raises_when_all_endpoints_fail(api):
+    """Test device discovery raises if every endpoint fails."""
+    api._request = AsyncMock(side_effect=ExperiaBoxV10AuthenticationError("auth failed"))
+
+    with pytest.raises(ExperiaBoxV10AuthenticationError):
+        await api.get_devices()

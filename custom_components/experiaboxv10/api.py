@@ -20,6 +20,14 @@ TrafficInfo = namedtuple(
 )
 
 
+class ExperiaBoxV10ApiError(Exception):
+    """Base exception for router API errors."""
+
+
+class ExperiaBoxV10AuthenticationError(ExperiaBoxV10ApiError):
+    """Raised when router authentication fails after retry."""
+
+
 class ExperiaBoxV10Api:
     """API for ExperiaBox v10."""
 
@@ -35,6 +43,11 @@ class ExperiaBoxV10Api:
         self._cookie: str | None = None
         self._user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         self._login_lock = asyncio.Lock()
+
+    def _clear_context(self) -> None:
+        """Clear cached router login context."""
+        self._context_id = None
+        self._cookie = None
 
     async def _get_context(self) -> tuple[str, str]:
         """Get context ID and cookie for the JSON API."""
@@ -67,6 +80,7 @@ class ExperiaBoxV10Api:
                 async with self._session.post(
                     login_url, json=login_payload, headers=headers, timeout=timeout
                 ) as resp:
+                    response_headers = resp.headers
                     # If /ws fails, fallback to lan:getMIBs for older firmware
                     if resp.status != 200:
                         _LOGGER.debug("Login to /ws failed, trying fallback")
@@ -76,6 +90,7 @@ class ExperiaBoxV10Api:
                         ) as resp_fb:
                             resp_fb.raise_for_status()
                             data = await resp_fb.json(content_type=None)
+                            response_headers = resp_fb.headers
                     else:
                         data = await resp.json(content_type=None)
 
@@ -89,7 +104,7 @@ class ExperiaBoxV10Api:
                         _LOGGER.error("Failed to parse contextID. Raw response: %s", data)
                         raise KeyError("contextID not found in response")
                         
-                    cookie_header = resp.headers.get("set-cookie", "")
+                    cookie_header = response_headers.get("set-cookie", "")
                     self._cookie = cookie_header.split(";")[0] if cookie_header else ""
                     return self._context_id, self._cookie
                 except KeyError as err:
@@ -105,6 +120,7 @@ class ExperiaBoxV10Api:
         method: str,
         parameters: dict | None = None,
         endpoint: str = "ws/NeMo/Intf/lan:getMIBs",
+        retry_on_auth_error: bool = True,
     ) -> dict[str, Any]:
         """Make a request to the router API."""
         if not self._context_id or self._cookie is None:
@@ -130,10 +146,18 @@ class ExperiaBoxV10Api:
         try:
             async with self._session.post(url, headers=headers, json=payload) as resp:
                 if resp.status in (401, 403):
-                    # Session expired, re-authenticate
-                    self._context_id = None
-                    self._cookie = None
-                    return await self._request(service, method, parameters, endpoint)
+                    self._clear_context()
+                    if retry_on_auth_error:
+                        return await self._request(
+                            service,
+                            method,
+                            parameters,
+                            endpoint,
+                            retry_on_auth_error=False,
+                        )
+                    raise ExperiaBoxV10AuthenticationError(
+                        f"Router authentication failed with HTTP {resp.status}"
+                    )
                 
                 resp.raise_for_status()
                 data = await resp.json(content_type=None)
@@ -146,21 +170,31 @@ class ExperiaBoxV10Api:
                         error_code = data["errors"][0].get("error")
                         
                     if error_code is not None:
-                        # 196621 = Access Denied / Invalid Session, 9003 = Invalid arguments
-                        if str(error_code) in ("196621", "196614", "9003"):
-                            self._context_id = None
-                            self._cookie = None
-                            return await self._request(service, method, parameters, endpoint)
+                        # 196621/196614 = Access Denied / Invalid Session
+                        if str(error_code) in ("196621", "196614"):
+                            self._clear_context()
+                            if retry_on_auth_error:
+                                return await self._request(
+                                    service,
+                                    method,
+                                    parameters,
+                                    endpoint,
+                                    retry_on_auth_error=False,
+                                )
+                            raise ExperiaBoxV10AuthenticationError(
+                                f"Router session expired after retry: {data}"
+                            )
                         elif str(error_code) == "196618" and service == "sah.Device.WiFi.Radio":
                             _LOGGER.debug("Ignoring 196618 error for WiFi Radio (disabled)")
                             return {}
                         else:
-                            raise Exception(f"Router API returned error {error_code}: {data}")
+                            raise ExperiaBoxV10ApiError(
+                                f"Router API returned error {error_code}: {data}"
+                            )
 
                 return data if isinstance(data, dict) else {}
-        except Exception as err:
-            self._context_id = None
-            self._cookie = None
+        except Exception:
+            self._clear_context()
             raise
 
     def _parse_devices(self, status_list: list[dict], track_wired_devices: bool, results: dict[str, Device], parent_is_wifi: bool = False) -> None:
@@ -216,30 +250,27 @@ class ExperiaBoxV10Api:
     async def get_devices(self, track_wired_devices: bool = False) -> list[Device]:
         """Get connected devices."""
         results: dict[str, Device] = {}
+        successful_query = False
+        last_error: Exception | None = None
 
         # 1. Try generic Devices:get on privileged gateway (proven in trace)
-        try:
-            # First get the inactive ones
-            data = await self._request(
-                "Devices", "get", 
-                {"expression": "not interface and not self and not voice and .Active==false", "flags": "full_links"},
-                endpoint="ws/NeMo/Intf/lan:getMIBs"
-            )
-            status = data.get("status")
-            if isinstance(status, list):
-                self._parse_devices(status, track_wired_devices, results)
-                
-            # Then get the active ones
-            data_active = await self._request(
-                "Devices", "get", 
-                {"expression": "not interface and not self and not voice and .Active==true", "flags": "full_links"},
-                endpoint="ws/NeMo/Intf/lan:getMIBs"
-            )
-            status_active = data_active.get("status")
-            if isinstance(status_active, list):
-                self._parse_devices(status_active, track_wired_devices, results)
-        except Exception as err:
-            _LOGGER.debug("Failed to get devices via targeted queries: %s", err)
+        for expression in (
+            "not interface and not self and not voice and .Active==false",
+            "not interface and not self and not voice and .Active==true",
+        ):
+            try:
+                data = await self._request(
+                    "Devices", "get",
+                    {"expression": expression, "flags": "full_links"},
+                    endpoint="ws/NeMo/Intf/lan:getMIBs"
+                )
+                successful_query = True
+                status = data.get("status")
+                if isinstance(status, list):
+                    self._parse_devices(status, track_wired_devices, results)
+            except Exception as err:
+                last_error = err
+                _LOGGER.debug("Failed to get devices via targeted query: %s", err)
 
         # 2. Try topology traversal as fallback
         if not results:
@@ -250,15 +281,19 @@ class ExperiaBoxV10Api:
                         {"expression": "not logical", "flags": "no_recurse|no_actions"},
                         endpoint="ws/NeMo/Intf/lan:getMIBs"
                     )
+                    successful_query = True
                     status = data.get("status")
                     if isinstance(status, list):
                         self._parse_topology(status, track_wired_devices, results)
-                except Exception:
-                    pass
+                except Exception as err:
+                    last_error = err
+                    _LOGGER.debug("Failed to get %s topology: %s", network, err)
 
         # Final check to see if we found anything
         if not results:
             _LOGGER.debug("No devices discovered on %s", self._host)
+            if not successful_query and last_error:
+                raise last_error
 
         return list(results.values())
 

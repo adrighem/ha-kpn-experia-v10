@@ -76,7 +76,7 @@ class ExperiaBoxV10DeviceScannerEntity(ExperiaBoxV10Entity, ScannerEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID."""
-        return self._mac
+        return f"{self.router_unique_id}_{self._mac}"
 
     @property
     def is_connected(self) -> bool:

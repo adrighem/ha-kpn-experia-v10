@@ -63,7 +63,7 @@ class ExperiaBoxV10Button(ExperiaBoxV10Entity, ButtonEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = (
-            f"{coordinator.data.router_info.serial_number}_{description.key}"
+            f"{self.router_unique_id}_{description.key}"
         )
 
     async def async_press(self) -> None:

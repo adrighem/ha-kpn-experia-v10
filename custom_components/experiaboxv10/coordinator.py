@@ -65,12 +65,23 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
             entry.data[CONF_USERNAME],
             entry.data[CONF_PASSWORD],
         )
+        entry_id = getattr(entry, "entry_id", None)
+        self.entry_id = (
+            entry_id if isinstance(entry_id, str) and entry_id else entry.data[CONF_HOST]
+        )
         self.track_wired_devices = (entry.options or {}).get(CONF_TRACK_WIRED_DEVICES, False)
         self._last_traffic_info: TrafficInfo | None = None
         self._last_traffic_time: float | None = None
         self._known_macs: set[str] | None = None
         self._last_new_device_time: float | None = None
         self._last_new_device_info: str | None = None
+
+    @property
+    def router_unique_id(self) -> str:
+        """Return a stable router identifier for entity unique IDs."""
+        if self.data and self.data.router_info.serial_number:
+            return self.data.router_info.serial_number
+        return self.entry_id
 
     def _calculate_throughput(self, current_time: float, current_traffic: TrafficInfo) -> tuple[float, float]:
         """Calculate download and upload throughput."""

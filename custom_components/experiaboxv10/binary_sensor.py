@@ -73,7 +73,7 @@ class ExperiaBoxV10BinarySensor(ExperiaBoxV10Entity, BinarySensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = (
-            f"{coordinator.data.router_info.serial_number}_{description.key}"
+            f"{self.router_unique_id}_{description.key}"
         )
 
     @property

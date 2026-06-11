@@ -128,7 +128,7 @@ class ExperiaBoxV10Sensor(ExperiaBoxV10Entity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{coordinator.data.router_info.serial_number}_{description.key}"
+        self._attr_unique_id = f"{self.router_unique_id}_{description.key}"
 
     @property
     def native_value(self) -> str | int | float | None:

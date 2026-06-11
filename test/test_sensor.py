@@ -76,3 +76,15 @@ def test_last_new_device_sensor(coordinator):
     
     assert sensor.unique_id == "SN1_last_new_device"
     assert sensor.native_value == "NewDevice (MAC2)"
+
+def test_sensor_unique_id_falls_back_to_entry_id(coordinator):
+    """Test sensor unique ID fallback when serial number is unavailable."""
+    mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.26.04", "", 3600)
+    mock_wan_info = WanInfo("8.8.8.8", True, "Up")
+    mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
+    coordinator.entry_id = "entry-123"
+    coordinator.data = ExperiaBoxV10Data([], mock_router_info, mock_wan_info, mock_traffic_info)
+
+    sensor = ExperiaBoxV10Sensor(coordinator, SENSOR_TYPES[0])
+
+    assert sensor.unique_id == "entry-123_uptime"
