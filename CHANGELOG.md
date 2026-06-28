@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.2](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.1...v3.2.2) (2026-06-28)
+
+
+### Bug Fixes
+
+* suppress optional endpoint permission warnings ([7dbed68](https://github.com/adrighem/ha-kpn-experia-v10/commit/7dbed683dfa5dfc99b7924d6305b5e76c5114226)), closes [#8](https://github.com/adrighem/ha-kpn-experia-v10/issues/8)
+
 ## [3.2.1](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.0...v3.2.1) (2026-06-11)
 
 
