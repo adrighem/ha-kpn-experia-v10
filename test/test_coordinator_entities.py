@@ -1,4 +1,5 @@
 """Test the ExperiaBox v10 Coordinator and Entities."""
+import logging
 from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 from datetime import timedelta
@@ -8,7 +9,13 @@ from custom_components.experiaboxv10.coordinator import (
     ExperiaBoxV10Data,
 )
 from custom_components.experiaboxv10.device_tracker import ExperiaBoxV10DeviceScannerEntity
-from custom_components.experiaboxv10.api import Device, RouterInfo, WanInfo, TrafficInfo
+from custom_components.experiaboxv10.api import (
+    ExperiaBoxV10PermissionDeniedError,
+    Device,
+    RouterInfo,
+    WanInfo,
+    TrafficInfo,
+)
 
 @pytest.fixture
 def hass():
@@ -79,6 +86,38 @@ async def test_coordinator_preserves_devices_on_update_failure(coordinator):
     data = await coordinator._async_update_data()
 
     assert data.devices == old_devices
+
+@pytest.mark.asyncio
+async def test_coordinator_logs_optional_permission_denied_at_debug(coordinator, caplog):
+    """Test optional permission errors do not create warning spam."""
+    mock_devices = [Device("MAC1", "Name1", "1.1.1.1", True)]
+    mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.25.08.15", "SN1", 100)
+    mock_wan_info = WanInfo("8.8.8.8", True, "Up")
+
+    coordinator.api.get_devices = AsyncMock(return_value=mock_devices)
+    coordinator.api.get_router_info = AsyncMock(return_value=mock_router_info)
+    coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
+    coordinator.api.get_traffic_info = AsyncMock(
+        side_effect=ExperiaBoxV10PermissionDeniedError(
+            "Router API returned permission denied for NeMo.Intf.eth0"
+        )
+    )
+    coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=False)
+    coordinator.api.get_wifi_enabled = AsyncMock(
+        side_effect=ExperiaBoxV10PermissionDeniedError(
+            "Router API returned permission denied for NMC.Wifi"
+        )
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="custom_components.experiaboxv10.coordinator"):
+        data = await coordinator._async_update_data()
+
+    assert data.devices == mock_devices
+    assert data.traffic_info == TrafficInfo(0, 0, 0, 0)
+    assert data.wifi_enabled is False
+    assert "Partial update failure" not in caplog.text
+    assert "Optional update unavailable for traffic counters" in caplog.text
+    assert "Optional update unavailable for Wi-Fi status" in caplog.text
 
 @pytest.mark.asyncio
 async def test_coordinator_throughput(coordinator):

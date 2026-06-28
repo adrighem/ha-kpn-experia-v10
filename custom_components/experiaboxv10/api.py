@@ -28,6 +28,10 @@ class ExperiaBoxV10AuthenticationError(ExperiaBoxV10ApiError):
     """Raised when router authentication fails after retry."""
 
 
+class ExperiaBoxV10PermissionDeniedError(ExperiaBoxV10ApiError):
+    """Raised when the router denies access to a specific API endpoint."""
+
+
 class ExperiaBoxV10Api:
     """API for ExperiaBox v10."""
 
@@ -187,12 +191,18 @@ class ExperiaBoxV10Api:
                         elif str(error_code) == "196618" and service == "sah.Device.WiFi.Radio":
                             _LOGGER.debug("Ignoring 196618 error for WiFi Radio (disabled)")
                             return {}
+                        elif str(error_code) == "13":
+                            raise ExperiaBoxV10PermissionDeniedError(
+                                f"Router API returned permission denied for {service}: {data}"
+                            )
                         else:
                             raise ExperiaBoxV10ApiError(
                                 f"Router API returned error {error_code}: {data}"
                             )
 
                 return data if isinstance(data, dict) else {}
+        except ExperiaBoxV10PermissionDeniedError:
+            raise
         except Exception:
             self._clear_context()
             raise

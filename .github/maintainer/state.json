@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "repository": "adrighem/ha-kpn-experia-v10",
   "lastRun": {
-    "id": "2026-06-11T14-44-39Z",
-    "mode": "maintain",
-    "capturedAt": "2026-06-11T14:44:39Z",
+    "id": "2026-06-27T19-02-15Z",
+    "mode": "maintain-ship",
+    "capturedAt": "2026-06-27T19:02:15Z",
     "captureMethod": "manual-gh-cli",
-    "openIssues": 0,
+    "openIssues": 1,
     "openPullRequests": 0,
-    "latestRelease": "v3.2.0",
-    "latestReleasePublishedAt": "2026-06-10T18:29:22Z"
+    "latestRelease": "v3.2.1",
+    "latestReleasePublishedAt": "2026-06-11T17:05:31Z"
   }
 }

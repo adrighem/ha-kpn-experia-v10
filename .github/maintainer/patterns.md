@@ -3,6 +3,7 @@
 ## Router API support
 
 - Real router responses can vary by firmware state. Preserve tests around API error handling and add fixtures for every newly observed router response shape.
+- Firmware `V10.C.25.08.15` can deny optional `NeMo.Intf.eth0` traffic stats and `NMC.Wifi` status calls with application error `13`; avoid warning spam when core data still updates.
 
 ## Release hygiene
 

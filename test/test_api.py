@@ -5,6 +5,7 @@ from custom_components.experiaboxv10.api import (
     ExperiaBoxV10Api,
     ExperiaBoxV10ApiError,
     ExperiaBoxV10AuthenticationError,
+    ExperiaBoxV10PermissionDeniedError,
 )
 
 @pytest.fixture
@@ -193,6 +194,31 @@ async def test_request_does_not_retry_invalid_arguments(api, mock_session):
     with pytest.raises(ExperiaBoxV10ApiError):
         await api._request("NMC", "badMethod", endpoint="ws")
 
+    assert mock_session.post.call_count == 2
+
+@pytest.mark.asyncio
+async def test_request_raises_permission_denied_without_clearing_context(api, mock_session):
+    """Test that permission denied API errors are classified without forcing relogin."""
+    mock_login_resp = create_mock_response(status=200, json_data={"data": {"contextID": "abc"}})
+    mock_error_resp = create_mock_response(
+        status=200,
+        json_data={
+            "status": None,
+            "errors": [
+                {
+                    "error": 13,
+                    "description": "Permission denied",
+                    "info": "NeMo.Intf.eth0",
+                }
+            ],
+        },
+    )
+    mock_session.post.side_effect = [mock_login_resp, mock_error_resp]
+
+    with pytest.raises(ExperiaBoxV10PermissionDeniedError):
+        await api._request("NeMo.Intf.eth0", "getNetDevStats", endpoint="ws")
+
+    assert api._context_id == "abc"
     assert mock_session.post.call_count == 2
 
 @pytest.mark.asyncio

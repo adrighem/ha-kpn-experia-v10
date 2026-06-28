@@ -14,9 +14,26 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 
 import time
 from .const import DOMAIN, CONF_TRACK_WIRED_DEVICES
-from .api import ExperiaBoxV10Api, Device, RouterInfo, WanInfo, TrafficInfo
+from .api import (
+    ExperiaBoxV10Api,
+    ExperiaBoxV10PermissionDeniedError,
+    Device,
+    RouterInfo,
+    WanInfo,
+    TrafficInfo,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+_PARTIAL_UPDATE_ENDPOINTS = (
+    "devices",
+    "router info",
+    "WAN info",
+    "traffic counters",
+    "guest Wi-Fi status",
+    "Wi-Fi status",
+)
+_OPTIONAL_ENDPOINT_START_INDEX = 3
 
 
 class ExperiaBoxV10Data:
@@ -130,6 +147,30 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
             
         return False
 
+    def _log_partial_update_failures(self, results: list[object]) -> None:
+        """Log partial update failures without warning for unavailable optional endpoints."""
+        for idx, result in enumerate(results):
+            if not isinstance(result, Exception):
+                continue
+
+            endpoint = (
+                _PARTIAL_UPDATE_ENDPOINTS[idx]
+                if idx < len(_PARTIAL_UPDATE_ENDPOINTS)
+                else f"endpoint index {idx}"
+            )
+            if (
+                idx >= _OPTIONAL_ENDPOINT_START_INDEX
+                and isinstance(result, ExperiaBoxV10PermissionDeniedError)
+            ):
+                _LOGGER.debug(
+                    "Optional update unavailable for %s: %s",
+                    endpoint,
+                    result,
+                )
+                continue
+
+            _LOGGER.warning("Partial update failure for %s: %s", endpoint, result)
+
     async def _async_update_data(self) -> ExperiaBoxV10Data:
         """Update data via library."""
         try:
@@ -182,10 +223,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
             else:
                 wifi_enabled = results[5]
 
-            # Log warnings for any partial failures
-            for idx, res in enumerate(results):
-                if isinstance(res, Exception):
-                    _LOGGER.warning("Partial update failure for endpoint index %d: %s", idx, res)
+            self._log_partial_update_failures(results)
 
             _LOGGER.debug("Successfully fetched data from ExperiaBox v10")
 
