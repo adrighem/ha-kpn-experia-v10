@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.3](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.2...v3.2.3) (2026-06-28)
+
+
+### Bug Fixes
+
+* suppress device permission warning spam ([7ba1112](https://github.com/adrighem/ha-kpn-experia-v10/commit/7ba111282bf28fb9efbcc1b2d92aedb619f891e6)), closes [#8](https://github.com/adrighem/ha-kpn-experia-v10/issues/8)
+
 ## [3.2.2](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.1...v3.2.2) (2026-06-28)
 
 
