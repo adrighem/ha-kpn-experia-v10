@@ -1,5 +1,11 @@
 # Maintainer Decisions
 
+## 2026-06-28 - Suppress recurring device permission-denied warnings after initial load
+
+- `ISSUE:8` received a post-release follow-up after `v3.2.2`: firmware `V10.C.25.08.15` can also deny `Devices.Device.guest` with router error `13`.
+- Decided device permission-denied failures should stay fatal during initial setup/first refresh, because setup validates router access through device discovery.
+- Decided recurring coordinator refreshes should preserve the previous device list and debug-log device permission denials, matching the non-fatal behavior users expect once core data is already available.
+
 ## 2026-06-27 - Handle optional endpoint permission denials
 
 - `ISSUE:8` reports repeated warning logs on firmware `V10.C.25.08.15` when optional endpoints `NeMo.Intf.eth0` and `NMC.Wifi` return router error `13`, `Permission denied`.

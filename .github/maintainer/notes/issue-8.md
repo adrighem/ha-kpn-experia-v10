@@ -39,4 +39,19 @@ Action: implemented a local fix that classifies router error `13` as permission 
 
 ## Public Action Status
 
-No public response posted. Human approval is required before commenting or closing.
+Owner comment posted on 2026-06-28T18:04:23Z. `v3.2.2` closed the issue on 2026-06-28T18:11:50Z.
+
+## 2026-06-28 Follow-up
+
+After updating to `3.2.2`, the reporter confirmed the original endpoint warnings were reduced but posted a new repeated warning:
+
+- `Devices.Device.guest` returns router application error `13`, `Permission denied`.
+
+Decision: keep device discovery permission denials fatal on first load, because config setup currently validates through device discovery. During later coordinator refreshes, reuse the previous device list and log device permission denials at debug level to avoid warning spam.
+
+Verification:
+
+- Added coordinator regression test for `Devices.Device.guest` permission-denied logging after existing data is available.
+- Full local pytest suite passes.
+
+Public action needed: after this follow-up fix is released, consider a short response on `ISSUE:8` acknowledging the extra endpoint and asking the reporter to update again.

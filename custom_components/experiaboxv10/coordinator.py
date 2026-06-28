@@ -33,7 +33,12 @@ _PARTIAL_UPDATE_ENDPOINTS = (
     "guest Wi-Fi status",
     "Wi-Fi status",
 )
-_OPTIONAL_ENDPOINT_START_INDEX = 3
+_PERMISSION_DENIED_DEBUG_ENDPOINTS = {
+    "devices",
+    "traffic counters",
+    "guest Wi-Fi status",
+    "Wi-Fi status",
+}
 
 
 class ExperiaBoxV10Data:
@@ -159,7 +164,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
                 else f"endpoint index {idx}"
             )
             if (
-                idx >= _OPTIONAL_ENDPOINT_START_INDEX
+                endpoint in _PERMISSION_DENIED_DEBUG_ENDPOINTS
                 and isinstance(result, ExperiaBoxV10PermissionDeniedError)
             ):
                 _LOGGER.debug(

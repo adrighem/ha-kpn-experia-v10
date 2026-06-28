@@ -88,6 +88,40 @@ async def test_coordinator_preserves_devices_on_update_failure(coordinator):
     assert data.devices == old_devices
 
 @pytest.mark.asyncio
+async def test_coordinator_logs_device_permission_denied_at_debug(coordinator, caplog):
+    """Test device permission errors do not create warning spam after first data."""
+    old_devices = [Device("MAC1", "Name1", "1.1.1.1", True)]
+    mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.25.08.15", "SN1", 100)
+    mock_wan_info = WanInfo("8.8.8.8", True, "Up")
+    mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
+    coordinator.data = ExperiaBoxV10Data(
+        old_devices,
+        mock_router_info,
+        mock_wan_info,
+        mock_traffic_info,
+        False,
+        True,
+    )
+
+    coordinator.api.get_devices = AsyncMock(
+        side_effect=ExperiaBoxV10PermissionDeniedError(
+            "Router API returned permission denied for Devices.Device.guest"
+        )
+    )
+    coordinator.api.get_router_info = AsyncMock(return_value=mock_router_info)
+    coordinator.api.get_wan_info = AsyncMock(return_value=mock_wan_info)
+    coordinator.api.get_traffic_info = AsyncMock(return_value=mock_traffic_info)
+    coordinator.api.get_guest_wifi_enabled = AsyncMock(return_value=False)
+    coordinator.api.get_wifi_enabled = AsyncMock(return_value=True)
+
+    with caplog.at_level(logging.DEBUG, logger="custom_components.experiaboxv10.coordinator"):
+        data = await coordinator._async_update_data()
+
+    assert data.devices == old_devices
+    assert "Partial update failure" not in caplog.text
+    assert "Optional update unavailable for devices" in caplog.text
+
+@pytest.mark.asyncio
 async def test_coordinator_logs_optional_permission_denied_at_debug(coordinator, caplog):
     """Test optional permission errors do not create warning spam."""
     mock_devices = [Device("MAC1", "Name1", "1.1.1.1", True)]
