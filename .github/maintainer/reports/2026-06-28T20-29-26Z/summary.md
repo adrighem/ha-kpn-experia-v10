@@ -8,8 +8,8 @@ Capture method: manual GitHub CLI. The installed open-source-maintainer skill st
 
 - Repository: `adrighem/ha-kpn-experia-v10`
 - Default branch: `master`
-- Open issues: 0
-- Open pull requests: 0
+- Open issues: 1 after approved reopen of `ISSUE:8`
+- Open pull requests: 1 after release-please opened `PR:10`
 - Latest release: `v3.2.2`, published 2026-06-28T18:12:00Z
 - Current branch: `master` at `2140207`, tag `v3.2.2`
 - CI signal: latest `master` Tests, HACS Validation, hassfest, release-please, and CodeQL runs are green
@@ -18,7 +18,7 @@ Capture method: manual GitHub CLI. The installed open-source-maintainer skill st
 
 1. Ship the local follow-up fix for `ISSUE:8:C:3`.
 2. Cut a patch release after CI passes, because the reporter still sees warning spam every polling interval on firmware `V10.C.25.08.15`.
-3. After human approval and release, post a short follow-up on `ISSUE:8` asking the reporter to update and confirm the new `Devices.Device.guest` warning is gone.
+3. Review and merge release-please `PR:10` after CI is green and human approval is explicit.
 
 ## Issue Analysis
 
@@ -57,4 +57,10 @@ Decision: keep device discovery strict on initial setup/first refresh, but when 
 
 ## Public Actions
 
-No public GitHub actions were taken in this run. Commenting, labeling, closing, release work, and PR actions still require explicit human approval.
+Human approval was given after the local fix:
+
+- Pushed fix commit `7ba1112` to `master`.
+- Reopened `ISSUE:8`.
+- Posted owner follow-up comment: https://github.com/adrighem/ha-kpn-experia-v10/issues/8#issuecomment-4827347024
+
+Release-please opened `PR:10` for `v3.2.3`. Merging it and publishing the release still require explicit approval.

@@ -54,4 +54,7 @@ Verification:
 - Added coordinator regression test for `Devices.Device.guest` permission-denied logging after existing data is available.
 - Full local pytest suite passes.
 
-Public action needed: after this follow-up fix is released, consider a short response on `ISSUE:8` acknowledging the extra endpoint and asking the reporter to update again.
+Public action taken with human approval on 2026-06-28T20:46:51Z:
+
+- Reopened `ISSUE:8`.
+- Posted owner follow-up comment: https://github.com/adrighem/ha-kpn-experia-v10/issues/8#issuecomment-4827347024
