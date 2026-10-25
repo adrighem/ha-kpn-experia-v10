@@ -31,6 +31,8 @@ async def async_setup_entry(
     @callback
     def async_update_entities() -> None:
         """Add new entities when they are discovered."""
+        if not coordinator.track_devices:
+            return
         new_entities = []
         for device in coordinator.data.devices:
             if device.mac not in tracked:

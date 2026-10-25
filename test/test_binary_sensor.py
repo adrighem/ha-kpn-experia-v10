@@ -35,14 +35,14 @@ def test_binary_sensor_properties(coordinator):
     mock_wan_info = WanInfo("8.8.8.8", True, "Up")
     mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
     coordinator.data = ExperiaBoxV10Data([], mock_router_info, mock_wan_info, mock_traffic_info)
-    
+
     description = BINARY_SENSOR_TYPES[0] # Connectivity
     sensor = ExperiaBoxV10BinarySensor(coordinator, description)
-    
+
     assert sensor.unique_id == "SN1_connectivity"
     assert sensor.is_on is True
     assert sensor.entity_description.name == "Connectivity"
-    
+
     # Test OFF state
     mock_wan_info_off = WanInfo("0.0.0.0", False, "Down")
     coordinator.data = ExperiaBoxV10Data([], mock_router_info, mock_wan_info_off, mock_traffic_info)
@@ -53,15 +53,15 @@ def test_new_device_sensor(coordinator):
     mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.26.04", "SN1", 3600)
     mock_wan_info = WanInfo("8.8.8.8", True, "Up")
     mock_traffic_info = TrafficInfo(1000, 2000, 10, 20)
-    
+
     coordinator.data = ExperiaBoxV10Data(
         [], mock_router_info, mock_wan_info, mock_traffic_info,
         new_device_detected=True
     )
-    
+
     description = BINARY_SENSOR_TYPES[1] # New Device Detected
     sensor = ExperiaBoxV10BinarySensor(coordinator, description)
-    
+
     assert sensor.unique_id == "SN1_new_device_detected"
     assert sensor.is_on is True
     assert sensor.entity_description.device_class == BinarySensorDeviceClass.SAFETY

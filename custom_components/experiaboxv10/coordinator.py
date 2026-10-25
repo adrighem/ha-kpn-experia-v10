@@ -13,11 +13,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 
 import time
-from .const import DOMAIN, CONF_TRACK_WIRED_DEVICES
+from .const import DOMAIN, CONF_TRACK_DEVICES, CONF_TRACK_WIRED_DEVICES
 from .api import (
     ExperiaBoxV10Api,
     ExperiaBoxV10PermissionDeniedError,
     Device,
+    ParentalSchedule,
     RouterInfo,
     WanInfo,
     TrafficInfo,
@@ -32,12 +33,14 @@ _PARTIAL_UPDATE_ENDPOINTS = (
     "traffic counters",
     "guest Wi-Fi status",
     "Wi-Fi status",
+    "parental control schedules",
 )
 _PERMISSION_DENIED_DEBUG_ENDPOINTS = {
     "devices",
     "traffic counters",
     "guest Wi-Fi status",
     "Wi-Fi status",
+    "parental control schedules",
 }
 
 
@@ -56,6 +59,7 @@ class ExperiaBoxV10Data:
         last_new_device: str | None = None,
         throughput_down: float = 0,
         throughput_up: float = 0,
+        parental_schedules: dict[str, ParentalSchedule] | None = None,
     ) -> None:
         """Initialize."""
         self.devices = devices
@@ -68,6 +72,7 @@ class ExperiaBoxV10Data:
         self.last_new_device = last_new_device
         self.throughput_down = throughput_down
         self.throughput_up = throughput_up
+        self.parental_schedules = parental_schedules or {}
 
 
 class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
@@ -91,6 +96,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
         self.entry_id = (
             entry_id if isinstance(entry_id, str) and entry_id else entry.data[CONF_HOST]
         )
+        self.track_devices = (entry.options or {}).get(CONF_TRACK_DEVICES, True)
         self.track_wired_devices = (entry.options or {}).get(CONF_TRACK_WIRED_DEVICES, False)
         self._last_traffic_info: TrafficInfo | None = None
         self._last_traffic_time: float | None = None
@@ -167,7 +173,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
             # First run, just populate known devices
             self._known_macs = current_macs
             return False
-            
+
         new_macs = current_macs - self._known_macs
         if new_macs:
             self._known_macs.update(new_macs)
@@ -181,7 +187,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
         if self._last_new_device_time:
             # Alert stays active for 5 minutes
             return current_time - self._last_new_device_time < 300
-            
+
         return False
 
     def _log_partial_update_failures(self, results: list[object]) -> None:
@@ -219,9 +225,10 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
                 self.api.get_traffic_info(),
                 self.api.get_guest_wifi_enabled(),
                 self.api.get_wifi_enabled(),
+                self.api.get_parental_control_schedules(),
                 return_exceptions=True,
             )
-                        
+
             # Unpack results with fallback to previous data on partial failures
             # Raise exception on first run only for critical components
             if isinstance(results[0], Exception):
@@ -230,28 +237,28 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
                 devices = self.data.devices
             else:
                 devices = results[0]
-                
+
             if isinstance(results[1], Exception):
                 if self.data is None:
                     raise results[1]
                 router_info = self.data.router_info
             else:
                 router_info = results[1]
-                
+
             if isinstance(results[2], Exception):
                 if self.data is None:
                     raise results[2]
                 wan_info = self.data.wan_info
             else:
                 wan_info = results[2]
-                
+
             if isinstance(results[3], Exception):
                 traffic_info = self.data.traffic_info if self.data else TrafficInfo(0, 0, 0, 0)
                 traffic_info_current = False
             else:
                 traffic_info = results[3]
                 traffic_info_current = True
-                
+
             if isinstance(results[4], Exception):
                 guest_wifi_enabled = self.data.guest_wifi_enabled if self.data else False
             else:
@@ -261,6 +268,11 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
                 wifi_enabled = self.data.wifi_enabled if self.data else False
             else:
                 wifi_enabled = results[5]
+
+            if isinstance(results[6], Exception):
+                parental_schedules = self.data.parental_schedules if self.data else {}
+            else:
+                parental_schedules = results[6]
 
             self._log_partial_update_failures(results)
 
@@ -302,6 +314,7 @@ class ExperiaBoxV10Coordinator(DataUpdateCoordinator[ExperiaBoxV10Data]):
                 self._last_new_device_info,
                 throughput_down,
                 throughput_up,
+                parental_schedules,
             )
         except Exception as exception:
             _LOGGER.exception("Error communicating with ExperiaBox v10")

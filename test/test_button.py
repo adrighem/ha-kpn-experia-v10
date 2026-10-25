@@ -30,10 +30,10 @@ async def test_button_press(coordinator):
     """Test button press action."""
     mock_router_info = RouterInfo("H369A", "V1.0", "V10.C.26.04", "SN1", 3600)
     coordinator.data = ExperiaBoxV10Data([], mock_router_info, None, None)
-    
+
     button = ExperiaBoxV10Button(coordinator, BUTTON_TYPES[0])
-    
+
     coordinator.api.reboot = AsyncMock()
     await button.async_press()
-    
+
     coordinator.api.reboot.assert_called_once()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
+from dataclasses import dataclass, field
 import asyncio
 import logging
 from json import JSONDecodeError
@@ -21,6 +22,18 @@ TrafficInfo = namedtuple(
     "TrafficInfo", ["bytes_sent", "bytes_received", "packets_sent", "packets_received"]
 )
 
+
+@dataclass(frozen=True)
+class ParentalSchedule:
+    """Class representing parental control schedule info."""
+
+    scheduled: bool
+    blocked: bool
+    rules: list[dict[str, Any]] = field(default_factory=list)
+    override: str | None = None
+    value: str | None = None
+
+
 _AUTH_ERROR_CODES = {"196621", "196614"}
 _AUTH_ERROR_TEXT_MARKERS = (
     "invalid session",
@@ -33,6 +46,7 @@ _OPTIONAL_PERMISSION_DENIED_SERVICES = {
     "Devices.Device.guest",
     "NeMo.Intf.eth0",
     "NMC.Wifi",
+    "Scheduler",
 }
 _CONTEXT_REFRESH_INTERVAL = 25 * 60
 
@@ -156,7 +170,7 @@ class ExperiaBoxV10Api:
             # Check if another task already got the context while we were waiting
             if self._context_id and self._cookie is not None:
                 return self._context_id, self._cookie
-                
+
             from aiohttp import ClientTimeout
 
             login_url = f"http://{self._host}/ws"
@@ -204,7 +218,7 @@ class ExperiaBoxV10Api:
                     else:
                         _LOGGER.error("Failed to parse contextID. Raw response: %s", data)
                         raise KeyError("contextID not found in response")
-                        
+
                     cookie_header = response_headers.get("set-cookie", "")
                     self._cookie = cookie_header.split(";")[0] if cookie_header else ""
                     self._context_created_at = time.monotonic()
@@ -324,7 +338,7 @@ class ExperiaBoxV10Api:
         for d in status_list:
             if not isinstance(d, dict):
                 continue
-            
+
             mac = d.get("PhysAddress")
             if not mac:
                 continue
@@ -332,7 +346,7 @@ class ExperiaBoxV10Api:
             active = bool(d.get("Active", False))
             tags = str(d.get("Tags", "")).lower().split()
             inf = str(d.get("InterfaceName", d.get("Layer2Interface", ""))).lower()
-            
+
             is_wifi = parent_is_wifi or "wifi" in tags or "ssw_sta" in tags or "wl0" in inf or "wl1" in inf
             is_wired = not is_wifi and ("eth" in tags or "lan" in tags or "eth" in inf)
 
@@ -352,7 +366,7 @@ class ExperiaBoxV10Api:
             tags = str(node.get("Tags", "")).lower().split()
             inf = str(node.get("InterfaceName", node.get("Layer2Interface", ""))).lower()
             is_wifi = parent_is_wifi or "wifi" in tags or "ssw_sta" in tags or "wl0" in inf or "wl1" in inf
-            
+
             mac = node.get("PhysAddress")
             if mac:
                 is_wired = not is_wifi and ("eth" in tags or "lan" in tags or "eth" in inf)
@@ -364,7 +378,7 @@ class ExperiaBoxV10Api:
                     str(node.get("IPAddress", "")),
                     bool(node.get("Active", False))
                 )
-            
+
             children = node.get("Children")
             if isinstance(children, list):
                 self._parse_topology(children, track_wired_devices, results, parent_is_wifi=is_wifi)
@@ -435,7 +449,7 @@ class ExperiaBoxV10Api:
             status = {}
 
         uptime = int(status.get("UpTime", 0) or 0)
-        
+
         # If uptime is still 0, try to get it from Time service (common in new firmware)
         if uptime == 0:
             try:
@@ -465,14 +479,14 @@ class ExperiaBoxV10Api:
                 status = status[0]
             if not isinstance(status, dict):
                 return {}
-        
+
         for name in mib_names:
             mib_data = status.get(name)
             if isinstance(mib_data, list) and mib_data:
                 mib_data = mib_data[0]
             if isinstance(mib_data, dict):
                 return mib_data
-            
+
         return status
 
     async def get_wan_info(self) -> WanInfo:
@@ -481,7 +495,7 @@ class ExperiaBoxV10Api:
         data = await self._request("NMC", "getWANStatus")
         status = data.get("status", False)
         val = data.get("data", {})
-        
+
         if status and isinstance(val, dict):
             return WanInfo(
                 external_ip=str(val.get("IPAddress", "")),
@@ -577,3 +591,126 @@ class ExperiaBoxV10Api:
         if enable:
             await self._request("NeMo.Intf.vap2g0priv", "set", {"PersistentEnable": True}, endpoint="ws")
             await self._request("NeMo.Intf.vap5g0priv", "set", {"PersistentEnable": True}, endpoint="ws")
+
+    async def get_parental_control_schedules(self) -> dict[str, ParentalSchedule]:
+        """Fetch parental control (ToD) schedules from the router."""
+        response = await self._request(
+            service="Scheduler",
+            method="getCompleteSchedules",
+            parameters={"type": "ToD"},
+            endpoint="ws/NeMo/Intf/lan:getMIBs",
+        )
+        schedules: dict[str, ParentalSchedule] = {}
+        if not response or not isinstance(response, dict):
+            return schedules
+
+        data = response.get("data")
+        if not isinstance(data, dict):
+            if "scheduleInfo" in response:
+                data = response
+            else:
+                return schedules
+
+        schedule_list = data.get("scheduleInfo")
+        if not isinstance(schedule_list, list):
+            return schedules
+
+        for item in schedule_list:
+            if not isinstance(item, dict):
+                continue
+            mac = item.get("ID")
+            if not mac:
+                continue
+            rules = item.get("schedule")
+            is_scheduled = bool(isinstance(rules, list) and len(rules) > 0)
+            val = str(item.get("value", "")).lower()
+            override = str(item.get("override", "")).lower()
+            is_blocked = (val == "disable" or override == "disable")
+
+            schedules[mac.upper()] = ParentalSchedule(
+                scheduled=is_scheduled,
+                blocked=is_blocked,
+                rules=rules if isinstance(rules, list) else [],
+                override=item.get("override"),
+                value=item.get("value"),
+            )
+
+        return schedules
+
+    async def set_parental_control(self, mac: str, block: bool) -> None:
+        """Set parental control for a device: block or unblock internet access."""
+        mac = mac.upper()
+        if block:
+            schedule_exists = False
+            try:
+                sched_resp = await self._request(
+                    service="Scheduler",
+                    method="getSchedule",
+                    parameters={"type": "ToD", "ID": mac},
+                    endpoint="ws",
+                )
+                if sched_resp and isinstance(sched_resp, dict) and sched_resp.get("status"):
+                    schedule_exists = True
+            except Exception as e:
+                _LOGGER.debug("getSchedule for %s returned error: %s", mac, e)
+
+            if schedule_exists:
+                await self._request(
+                    service="Scheduler",
+                    method="overrideSchedule",
+                    parameters={"type": "ToD", "ID": mac, "override": "Disable"},
+                    endpoint="ws",
+                )
+            else:
+                await self._request(
+                    service="Scheduler",
+                    method="addSchedule",
+                    parameters={
+                        "type": "ToD",
+                        "info": {
+                            "base": "Weekly",
+                            "def": "Enable",
+                            "ID": mac,
+                            "schedule": [],
+                            "enable": True,
+                            "override": "Disable",
+                        },
+                    },
+                    endpoint="ws",
+                )
+        else:
+            await self._request(
+                service="Scheduler",
+                method="overrideSchedule",
+                parameters={"type": "ToD", "ID": mac, "override": "Enable"},
+                endpoint="ws",
+            )
+            await self._request(
+                service="Scheduler",
+                method="removeSchedules",
+                parameters={"type": "ToD", "ID": [mac]},
+                endpoint="ws",
+            )
+
+    async def set_device_name(self, mac: str, name: str) -> None:
+        """Set friendly name for a device on the router if changed."""
+        mac = mac.upper()
+        service = f"Devices.Device.{mac}"
+        try:
+            current_data = await self._request(
+                service, "get", parameters={"flags": "full_links"}, endpoint="ws"
+            )
+            current_name = None
+            if (
+                isinstance(current_data, dict)
+                and "status" in current_data
+                and isinstance(current_data["status"], dict)
+            ):
+                current_name = current_data["status"].get("Name")
+
+            if current_name != name:
+                _LOGGER.debug("Setting router device name for %s to '%s'", mac, name)
+                await self._request(service, "setName", parameters={"name": name}, endpoint="ws")
+        except Exception as e:
+            _LOGGER.warning("Failed to update device name on router for %s: %s", mac, e)
+            raise

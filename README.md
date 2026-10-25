@@ -12,11 +12,12 @@ This integration wrangles your ZTE H369A (Experia Box v10) into Home Assistant. 
 
 ## 🚀 What it does
 
-*   **Who's home?** Tracks all connected devices (wired and wireless) using robust network topology traversal. No more guessing.
+*   **Who's home?** Tracks all connected devices (wired and wireless) using robust network topology traversal. Optionally disable device tracking if you only want router metrics and controls.
+*   **Parental Control:** Monitors device internet access schedules and lets you block or unblock internet access for individual connected devices with dedicated switches.
 *   **Speed & Greed:** Monitors real-time download/upload speeds and total data consumption.
 *   **Vitals:** Keeps an eye on your External IP, WAN link status, active client count, and router uptime.
 *   **Intruder Alert:** Triggers a diagnostic sensor when a wild new device appears on your network.
-*   **The Big Buttons:** Reboot the router or toggle Guest Wi-Fi directly from your dashboard.
+*   **The Big Buttons:** Reboot the router, toggle Global Wi-Fi, or toggle Guest Wi-Fi directly from your dashboard.
 
 ## 📦 Installation
 

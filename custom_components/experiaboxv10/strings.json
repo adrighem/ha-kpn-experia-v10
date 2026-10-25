@@ -6,6 +6,7 @@
           "host": "Host",
           "username": "Username",
           "password": "Password",
+          "track_devices": "Track connected devices",
           "track_wired_devices": "Also track wired devices"
         }
       }
@@ -23,6 +24,7 @@
     "step": {
       "init": {
         "data": {
+          "track_devices": "Track connected devices",
           "track_wired_devices": "Also track wired devices"
         }
       }

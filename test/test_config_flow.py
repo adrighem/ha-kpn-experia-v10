@@ -56,6 +56,7 @@ async def test_successful_flow(flow):
         "host": "192.168.2.254",
         "username": "admin",
         "password": "password",
+        "track_devices": True,
         "track_wired_devices": True,
     }
 
@@ -72,7 +73,7 @@ async def test_successful_flow(flow):
         "username": "admin",
         "password": "password",
     }
-    assert result["options"] == {"track_wired_devices": True}
+    assert result["options"] == {"track_devices": True, "track_wired_devices": True}
 
 @pytest.mark.asyncio
 async def test_failed_flow(flow):

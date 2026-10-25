@@ -13,7 +13,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, CONF_TRACK_WIRED_DEVICES
+from .const import DOMAIN, CONF_TRACK_DEVICES, CONF_TRACK_WIRED_DEVICES
 from .api import ExperiaBoxV10Api
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
+        vol.Optional(CONF_TRACK_DEVICES, default=True): bool,
         vol.Optional(CONF_TRACK_WIRED_DEVICES, default=False): bool,
     }
 )
@@ -81,6 +82,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
                 },
                 options={
+                    CONF_TRACK_DEVICES: user_input.get(
+                        CONF_TRACK_DEVICES, True
+                    ),
                     CONF_TRACK_WIRED_DEVICES: user_input.get(
                         CONF_TRACK_WIRED_DEVICES, False
                     ),
@@ -106,6 +110,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONF_TRACK_DEVICES,
+                        default=self.config_entry.options.get(
+                            CONF_TRACK_DEVICES, True
+                        ),
+                    ): bool,
                     vol.Optional(
                         CONF_TRACK_WIRED_DEVICES,
                         default=self.config_entry.options.get(

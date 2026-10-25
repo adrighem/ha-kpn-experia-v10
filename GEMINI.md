@@ -113,6 +113,17 @@ uv run --with aiohttp --with voluptuous <script_name>.py
     - Updated tests to verify the detection logic and sensor states.
     - Verified all 22 tests pass.
 
+## Phase 5: Parental Control & Advanced Options
+- **Status:** Completed.
+- **Changes:**
+    - Expanded `ExperiaBoxV10Api` with parental control schedule retrieval (`get_parental_control_schedules`), internet access toggling (`set_parental_control`), and router device rename synchronization (`set_device_name`).
+    - Added `ParentalSchedule` dataclass to structured API returns.
+    - Updated `ExperiaBoxV10Coordinator` to fetch parental schedules concurrently with graceful fallback and debug logging for permission denied errors.
+    - Implemented `ExperiaBoxV10DeviceInternetAccessSwitch` in `switch.py` providing internet access control and ToD schedule status per tracked device.
+    - Added `track_devices` configuration and options flow settings allowing users to disable device tracking while retaining router metrics.
+    - Added comprehensive unit tests for new API methods, coordinator handling, and switch platforms.
+    - Verified all 60 tests pass.
+
 ## Known Issues
 
 ### Config Flow 500 Error

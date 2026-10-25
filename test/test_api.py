@@ -556,3 +556,177 @@ async def test_get_devices_raises_when_all_endpoints_fail(api):
 
     with pytest.raises(ExperiaBoxV10AuthenticationError):
         await api.get_devices()
+
+@pytest.mark.asyncio
+async def test_get_parental_control_schedules(api):
+    """Test fetching and parsing parental control schedules."""
+    api._request = AsyncMock(
+        return_value={
+            "status": True,
+            "data": {
+                "scheduleInfo": [
+                    {
+                        "ID": "AA:BB:CC:DD:EE:01",
+                        "enable": True,
+                        "override": "Disable",
+                        "value": "Disable",
+                        "schedule": [{"day": "Mon"}],
+                    },
+                    {
+                        "ID": "AA:BB:CC:DD:EE:02",
+                        "enable": False,
+                        "override": "",
+                        "value": "Enable",
+                        "schedule": [],
+                    },
+                ]
+            },
+        }
+    )
+
+    schedules = await api.get_parental_control_schedules()
+    assert "AA:BB:CC:DD:EE:01" in schedules
+    assert schedules["AA:BB:CC:DD:EE:01"].scheduled is True
+    assert schedules["AA:BB:CC:DD:EE:01"].blocked is True
+    assert schedules["AA:BB:CC:DD:EE:01"].override == "Disable"
+    assert schedules["AA:BB:CC:DD:EE:01"].rules == [{"day": "Mon"}]
+
+    assert "AA:BB:CC:DD:EE:02" in schedules
+    assert schedules["AA:BB:CC:DD:EE:02"].scheduled is False
+    assert schedules["AA:BB:CC:DD:EE:02"].blocked is False
+
+@pytest.mark.asyncio
+async def test_get_parental_control_schedules_empty_or_invalid(api):
+    """Test fetching parental control schedules with empty or invalid responses."""
+    api._request = AsyncMock(return_value=None)
+    assert await api.get_parental_control_schedules() == {}
+
+    api._request = AsyncMock(return_value={})
+    assert await api.get_parental_control_schedules() == {}
+
+    api._request = AsyncMock(return_value={"data": "invalid"})
+    assert await api.get_parental_control_schedules() == {}
+
+    api._request = AsyncMock(return_value={"data": {"scheduleInfo": "not-a-list"}})
+    assert await api.get_parental_control_schedules() == {}
+
+    api._request = AsyncMock(
+        return_value={
+            "data": {
+                "scheduleInfo": [
+                    None,
+                    {"no_id": True},
+                    {"ID": ""},
+                ]
+            }
+        }
+    )
+    assert await api.get_parental_control_schedules() == {}
+
+@pytest.mark.asyncio
+async def test_set_parental_control_block_existing_schedule(api):
+    """Test blocking internet when schedule already exists."""
+    api._request = AsyncMock()
+    # First getSchedule returns existing schedule
+    api._request.side_effect = [
+        {"status": True, "data": {"ID": "AA:BB:CC:DD:EE:01"}},
+        {"status": True},
+    ]
+
+    await api.set_parental_control("AA:BB:CC:DD:EE:01", block=True)
+
+    assert api._request.call_count == 2
+    api._request.assert_any_call(
+        service="Scheduler",
+        method="getSchedule",
+        parameters={"type": "ToD", "ID": "AA:BB:CC:DD:EE:01"},
+        endpoint="ws",
+    )
+    api._request.assert_any_call(
+        service="Scheduler",
+        method="overrideSchedule",
+        parameters={"type": "ToD", "ID": "AA:BB:CC:DD:EE:01", "override": "Disable"},
+        endpoint="ws",
+    )
+
+@pytest.mark.asyncio
+async def test_set_parental_control_block_new_schedule(api):
+    """Test blocking internet when no prior schedule exists."""
+    api._request = AsyncMock()
+    api._request.side_effect = [
+        {"status": False},
+        {"status": True},
+    ]
+
+    await api.set_parental_control("AA:BB:CC:DD:EE:01", block=True)
+
+    assert api._request.call_count == 2
+    api._request.assert_any_call(
+        service="Scheduler",
+        method="addSchedule",
+        parameters={
+            "type": "ToD",
+            "info": {
+                "base": "Weekly",
+                "def": "Enable",
+                "ID": "AA:BB:CC:DD:EE:01",
+                "schedule": [],
+                "enable": True,
+                "override": "Disable",
+            },
+        },
+        endpoint="ws",
+    )
+
+@pytest.mark.asyncio
+async def test_set_parental_control_unblock(api):
+    """Test unblocking internet removes schedules and enables override."""
+    api._request = AsyncMock(return_value={"status": True})
+
+    await api.set_parental_control("aa:bb:cc:dd:ee:01", block=False)
+
+    assert api._request.call_count == 2
+    api._request.assert_any_call(
+        service="Scheduler",
+        method="overrideSchedule",
+        parameters={"type": "ToD", "ID": "AA:BB:CC:DD:EE:01", "override": "Enable"},
+        endpoint="ws",
+    )
+    api._request.assert_any_call(
+        service="Scheduler",
+        method="removeSchedules",
+        parameters={"type": "ToD", "ID": ["AA:BB:CC:DD:EE:01"]},
+        endpoint="ws",
+    )
+
+@pytest.mark.asyncio
+async def test_set_device_name(api):
+    """Test setting device name only sends update if changed."""
+    api._request = AsyncMock()
+    api._request.side_effect = [
+        {"status": {"Name": "Old Name"}},
+        {"status": True},
+    ]
+
+    await api.set_device_name("AA:BB:CC:DD:EE:01", "New Name")
+    assert api._request.call_count == 2
+    api._request.assert_any_call(
+        "Devices.Device.AA:BB:CC:DD:EE:01",
+        "get",
+        parameters={"flags": "full_links"},
+        endpoint="ws",
+    )
+    api._request.assert_any_call(
+        "Devices.Device.AA:BB:CC:DD:EE:01",
+        "setName",
+        parameters={"name": "New Name"},
+        endpoint="ws",
+    )
+
+    # When name is already identical, it should not call setName
+    api._request.reset_mock()
+    api._request.side_effect = None
+    api._request.return_value = {"status": {"Name": "New Name"}}
+    await api.set_device_name("AA:BB:CC:DD:EE:01", "New Name")
+    assert api._request.call_count == 1
+

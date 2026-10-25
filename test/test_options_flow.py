@@ -10,7 +10,7 @@ class MockOptionsFlowBase:
     @property
     def config_entry(self):
         return self._config_entry
-    
+
     @config_entry.setter
     def config_entry(self, value):
         self._config_entry = value
@@ -32,7 +32,7 @@ OptionsFlowHandler.__bases__ = (MockOptionsFlowBase,)
 def options_flow():
     handler = OptionsFlowHandler()
     handler.config_entry = MagicMock()
-    handler.config_entry.options = {"track_wired_devices": False}
+    handler.config_entry.options = {"track_devices": True, "track_wired_devices": False}
     return handler
 
 @pytest.mark.asyncio
@@ -40,20 +40,23 @@ async def test_options_flow_init(options_flow):
     """Test that the options flow initializes correctly."""
     # This specifically tests the fix for the AttributeError
     assert options_flow.config_entry is not None
+    assert options_flow.config_entry.options["track_devices"] is True
     assert options_flow.config_entry.options["track_wired_devices"] is False
 
 @pytest.mark.asyncio
 async def test_options_flow_step_init(options_flow):
     """Test the init step of options flow."""
     result = await options_flow.async_step_init()
-    
+
     assert result["type"] == "form"
     assert result["step_id"] == "init"
 
 @pytest.mark.asyncio
 async def test_options_flow_save(options_flow):
     """Test saving options flow."""
-    result = await options_flow.async_step_init(user_input={"track_wired_devices": True})
-    
+    result = await options_flow.async_step_init(
+        user_input={"track_devices": False, "track_wired_devices": True}
+    )
+
     assert result["type"] == "create_entry"
-    assert result["data"] == {"track_wired_devices": True}
+    assert result["data"] == {"track_devices": False, "track_wired_devices": True}
