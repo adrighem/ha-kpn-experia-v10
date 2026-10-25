@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.5...v3.3.0) (2026-10-25)
+
+
+### Features
+
+* support parental control and configurable device tracking ([5bd3019](https://github.com/adrighem/ha-kpn-experia-v10/commit/5bd3019806fc163811a5223c3e3f78821e0690c2))
+
 ## [3.2.5](https://github.com/adrighem/ha-kpn-experia-v10/compare/v3.2.4...v3.2.5) (2026-07-05)
 
 
